@@ -1,94 +1,103 @@
 // ════════════════════════════════════════════
 // CACHE SYSTEM — localStorage based
 // ════════════════════════════════════════════
-const CACHE_TTL = 10 * 60 * 1000 // 10 minutes
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 const cache = {
   get(key) {
     try {
-      const raw = localStorage.getItem(key)
-      if (!raw) return null
-      const { data, ts } = JSON.parse(raw)
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+
+      const { data, ts } = JSON.parse(raw);
+
+      // expired?
       if (Date.now() - ts > CACHE_TTL) {
-        localStorage.removeItem(key)
-        return null
+        localStorage.removeItem(key);
+        return null;
       }
-      return data
+
+      return data;
     } catch {
-      return null
+      return null;
     }
   },
 
   set(key, data) {
     try {
-      localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }))
+      localStorage.setItem(
+        key,
+        JSON.stringify({ data, ts: Date.now() })
+      );
     } catch (e) {
-  
-      localStorage.clear()
+      console.warn("Cache full, clearing...");
+      localStorage.clear();
     }
   },
-}
+};
 
 // ════════════════════════════════════════════
-// BASE FETCH — cache check karta hai pehle
+// BASE FETCH — cache + API
 // ════════════════════════════════════════════
 const fetchData = async (path) => {
-  const cacheKey = `imdb_${path}`
+  const cacheKey = `imdb_${path}`;
 
-  // 1. Cache me hai? → instant return
-  const cached = cache.get(cacheKey)
+  // 1. cache check
+  const cached = cache.get(cacheKey);
   if (cached) {
-    console.log(`⚡ CACHE HIT: ${path}`)
-    return cached
+    console.log(`⚡ CACHE HIT: ${path}`);
+    return cached;
   }
 
-  // 2. API call karo (Vite proxy se CORS fix)
-  console.log(`🌐 API CALL: ${path}`)
-  const res = await fetch(`/api${path}`)
+  // 2. API call (Vite proxy use ho raha hai)
+  console.log(`🌐 API CALL: ${path}`);
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const res = await fetch(`/api${path}`);
 
-  const data = await res.json()
-  cache.set(cacheKey, data)
-  return data
-}
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+
+  // 3. cache store
+  cache.set(cacheKey, data);
+
+  return data;
+};
 
 // ════════════════════════════════════════════
-// API FUNCTIONS — Correct endpoints & params
+// API FUNCTIONS
 // ════════════════════════════════════════════
 
-/**
- * Titles list with pagination
- * @param {string|null} pageToken - null for first page, token for next
- * @param {string|null} type - 'MOVIE' | 'TV_SERIES' | 'VIDEO_GAME' | null
- */
+// 📺 Titles list
 export const fetchTitles = (pageToken = null, type = null) => {
-  const params = new URLSearchParams()
+  const params = new URLSearchParams();
 
-  if (type) params.append('types', type)
-  if (pageToken) params.append('pageToken', pageToken)
+  if (type) params.append("types", type);
+  if (pageToken) params.append("pageToken", pageToken);
 
-  // Sort by popularity by default
-  params.append('sortBy', 'SORT_BY_POPULARITY')
-  params.append('sortOrder', 'ASC')
+  params.append("sortBy", "SORT_BY_POPULARITY");
+  params.append("sortOrder", "ASC");
 
-  return fetchData(`/titles?${params.toString()}`)
-}
+  return fetchData(`/titles?${params.toString()}`);
+};
 
-/**
- * Search titles
- * @param {string} query - search text
- */
+// 🔍 Search
 export const searchTitles = (query) => {
-  if (!query?.trim()) return Promise.resolve({ titles: [] })
-  const params = new URLSearchParams({ query, limit: 10 })
-  return fetchData(`/search/titles?${params.toString()}`)
-}
+  if (!query?.trim()) {
+    return Promise.resolve({ titles: [] });
+  }
 
-/**
- * Single title detail
- * @param {string} id - IMDb ID like tt1190634
- */
+  const params = new URLSearchParams({
+    query,
+    limit: 10,
+  });
+
+  return fetchData(`/search/titles?${params.toString()}`);
+};
+
+// 🎬 Single title
 export const fetchTitleById = (id) => {
-  return fetchData(`/titles/${id}`)
-}
+  return fetchData(`/titles/${id}`);
+};
