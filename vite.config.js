@@ -1,24 +1,24 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-   base: '/',   
+
+  // ✅ production build
+  base: "/",
   build: {
-    outDir: 'dist'
+    outDir: "dist",
   },
-  define: {
-    global: "window",    
-  },
-  
+
+
   server: {
     proxy: {
-      '/api': {
-        target: 'https://api.imdbapi.dev', 
+      "/api": {
+        target: "https://api.imdbapi.dev", 
         changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        secure: true, 
+        rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
   },
